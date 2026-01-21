@@ -15,12 +15,12 @@ char* clean_up_file(FILE* fp)
     long filesize;
     if (fseek(fp, 0, SEEK_END) !=0)
     {
-        return 1;
+        return NULL;
     }
     filesize = ftell(fp);
     if (filesize<0)
     {
-        return 1;
+        return NULL;
     }
     rewind(fp);
 
@@ -29,9 +29,10 @@ char* clean_up_file(FILE* fp)
     if (memory == NULL)
     {
         printf("Memory allocation failed!");
-        return 1;
+        return NULL;
     }
-    int c, is_previous_char_space = 0, memory_index = 0;
+    int c, is_previous_char_space = 0;
+    long memory_index = 0;
     while ((c = fgetc(fp)) != EOF)
     {
         char ch = (char)c;

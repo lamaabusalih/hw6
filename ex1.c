@@ -130,12 +130,140 @@ char *extract_entry(char *fp, char **firstname,char **secondname, char **fingerp
 
     return end;   
 }
-    
-int main(int argc, char **argv) {
+//structure of type entry eith 4 fields
+typedef struct 
+{
+    char* fn, *sn, *fp, *pos;
+} Entry;
+// a function which accepts an array of strings and the num of strings, and chicks if we had this fingerprint before and if we do returns 1 if we dont 0!
+int seen_before(char **saved_fingerprints, int saved_fingerprints_count, const char *fp) {
+    for (int i = 0; i < saved_fingerprints_count; i++)
+        if (strcmp(saved_fingerprints[i], fp) == 0) return 1;
+    return 0;
+}
+// a function which prints the 4 fields of the structure
+void print_entry(FILE *out, Entry e) 
+{
+    fprintf(out, "First Name: %s\n", e.fn);
+    fprintf(out, "Second Name: %s\n", e.sn);
+    fprintf(out, "Fingerprint: %s\n", e.fp);
+    fprintf(out, "Position: %s\n\n", e.pos);
+}
+
+
+void FREE_ENTRY(char *fn, char* sn, char* fp, char* pos)
+{
+    free(fn);
+    free(sn);
+    free(fp);
+    free(pos);
+}
+
+
+int main(int argc, char **argv)
+{
     if (argc != 3) {
         printf("Usage: %s <input_corrupted.txt> <output_clean.txt>\n", argv[0]);
         return 0;
     }
     // TODO: implement
+
+    FILE *in = fopen(argv[1], "r");
+    if (!in) { perror("reading failed"); return 1; }
+
+    char *clean = clean_up_file(in);
+    fclose(in);
+    if (!clean) { fprintf(stderr, "clean_up_file failed\n"); return 1; }
+
+    /* ---------- TASK 3 (dedup + ordering + write) ---------- */
+
+    Entry boss = (Entry){0}, righthand = (Entry){0}, lefthand = (Entry){0};
+
+    Entry *supR = NULL, *supL = NULL;
+    int supR_count = 0, supL_count = 0;
+    int supR_cap = 0, supL_cap = 0;
+
+    char **saved_fps = NULL;
+    int saved_count = 0, saved_cap = 0;
+
+    char *p = clean;
+
+    while (1) {
+        Entry e;
+        char *next = extract_entry(p, &e.fn, &e.sn, &e.fp, &e.pos);
+        if (!next) break;
+        p = next;
+
+        /* dedup by fingerprint (keep first) */
+        if (seen_before(saved_fps, saved_count, e.fp)) {
+            free(e.fn); free(e.sn); free(e.fp); free(e.pos);
+            continue;
+        }
+
+        // store fp in seen list 
+        if (saved_count == saved_cap) {
+            saved_cap = (saved_cap == 0) ? 8 : saved_cap * 2;
+            saved_fps = realloc(saved_fps, saved_cap * sizeof(*saved_fps));
+            if (!saved_fps) { fprintf(stderr, "Out of memory\n"); exit(1); }
+        }
+        saved_fps[saved_count++] = e.fp; // freed when freeing entries 
+
+        // bucket by position (Boss, Right Hand, Left Hand, then supports in first-seen order) 
+        if (!strcmp(e.pos, "Boss") && boss.fp == NULL) boss = e;
+        else if (!strcmp(e.pos, "Right Hand") && righthand.fp == NULL) righthand = e;
+        else if (!strcmp(e.pos, "Left Hand") && lefthand.fp == NULL) lefthand = e;
+        else if (!strcmp(e.pos, "Support_Right")) 
+        {
+            if (supR_count == supR_cap) {
+                supR_cap = (supR_cap == 0) ? 8 : supR_cap * 2;
+                supR = realloc(supR, supR_cap * sizeof(*supR));
+                if (!supR) { fprintf(stderr, "Out of memory\n"); exit(1); }
+            }
+            supR[supR_count++] = e;
+        } 
+        else if (!strcmp(e.pos, "Support_Left")) 
+        {
+            if (supL_count == supL_cap) {
+                supL_cap = (supL_cap == 0) ? 8 : supL_cap * 2;
+                supL = realloc(supL, supL_cap * sizeof(*supL));
+                if (!supL) { fprintf(stderr, "Out of memory\n"); exit(1); }
+            }
+            supL[supL_count++] = e;
+        } 
+        else 
+        {
+            //duplicate boss/right/left after first, or unknown position 
+            free(e.fn); free(e.sn); free(e.fp); free(e.pos);
+        }
+    }
+
+    FILE *out = fopen(argv[2], "w");
+    if (!out) { perror("output"); free(clean); return 1; }
+
+    if (boss.fp)      print_entry(out, boss);
+    if (righthand.fp) print_entry(out, righthand);
+    if (lefthand.fp)  print_entry(out, lefthand);
+    for (int i = 0; i < supR_count; i++) print_entry(out, supR[i]);
+    for (int i = 0; i < supL_count; i++) print_entry(out, supL[i]);
+
+    fclose(out);
+
+
+    FREE_ENTRY(boss.fn, boss.sn, boss.fp,boss.pos);
+    FREE_ENTRY(righthand.fn, righthand.sn, righthand.fp,righthand.pos);
+    FREE_ENTRY(lefthand.fn, lefthand.sn, lefthand.fp, lefthand.pos);
+    for (int i = 0; i < supR_count; i++) FREE_ENTRY(supR[i].fn, supR[i].sn, supR[i].fp, supR[i].pos);
+    for (int i = 0; i < supL_count; i++) FREE_ENTRY(supL[i].fn, supL[i].sn, supL[i].fp, supL[i].pos);
+
+    free(supR);
+    free(supL);
+    free(saved_fps);
+    free(clean);
+    
+
     return 0;
+
 }
+
+    
+

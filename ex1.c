@@ -162,12 +162,12 @@ int main(int argc, char **argv)
         if (saved_count == saved_cap) {
             saved_cap = saved_cap ? saved_cap * 2 : 8;
             char **tmp = realloc(saved_fps, saved_cap * sizeof(*saved_fps));
-            if (!tmp) return 0;
+            if (!tmp) { printf("memory allocation failed\n"); free(clean); return 0; }  /* FIX 2 */
             saved_fps = tmp;
         }
 
         saved_fps[saved_count] = malloc(strlen(e.fp) + 1);
-        if (!saved_fps[saved_count]) return 0;
+        if (!saved_fps[saved_count]) { printf("memory allocation failed\n"); free(clean); return 0; } /* FIX 2 */
         strcpy(saved_fps[saved_count++], e.fp);
 
         if (!strcmp(e.pos, "Boss") && !boss.fp) boss = e;
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
             if (supR_count == supR_cap) {
                 supR_cap = supR_cap ? supR_cap * 2 : 8;
                 Entry *tmp = realloc(supR, supR_cap * sizeof(*supR));
-                if (!tmp) return 0;
+                if (!tmp) { printf("memory allocation failed\n"); free(clean); return 0; } /* FIX 2 */
                 supR = tmp;
             }
             supR[supR_count++] = e;
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
             if (supL_count == supL_cap) {
                 supL_cap = supL_cap ? supL_cap * 2 : 8;
                 Entry *tmp = realloc(supL, supL_cap * sizeof(*supL));
-                if (!tmp) return 0;
+                if (!tmp) { printf("memory allocation failed\n"); free(clean); return 0; } /* FIX 2 */
                 supL = tmp;
             }
             supL[supL_count++] = e;
@@ -199,6 +199,7 @@ int main(int argc, char **argv)
     FILE *out = fopen(argv[2], "w");
     if (!out) {
         printf("Error opening file: %s\n", argv[2]);
+        free(clean); /* FIX 1 */
         return 0;
     }
 
